@@ -20,7 +20,11 @@ A solução segue a **Clean Architecture**, promovendo uma forte separação de 
 
 *   **Linguagem**: C# 12
 *   **Framework**: .NET 8 (ASP.NET Core)
-*   **Padrões de Desi  gn**: Clean Architecture, CQRS (Command Query Responsibility Segregation), DDD (Domain-Driven Design), Result Pattern
+*   **Padrões de Design**: 
+    * Clean Architecture;
+    * CQRS (Command Query Responsibility Segregation);
+    * DDD (Domain-Driven Design);
+    * Result Pattern;
 *   **Comunicação Interna**: MediatR (para orquestração de comandos e queries dentro de cada domínio)
 *   **Comunicação Assíncrona/Eventos**: KafkaFlow
 *   **Banco de Dados**: SQLite (para simplicidade em desenvolvimento, facilmente substituível)
