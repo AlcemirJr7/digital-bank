@@ -115,6 +115,11 @@ A hierarquia de dependências segue rigorosamente o padrão: `Api -> Infrastruct
 
 A forma mais fácil de iniciar todos os serviços (Kafka, Zookeeper e as APIs) é utilizando Docker Compose.
 
+0. **Criar network Docker (caso não existir)**:
+
+    ```bash
+    docker network create digitalbank_network
+    ```
 1.  **Inicie os serviços**:
 * Kafka:
 
