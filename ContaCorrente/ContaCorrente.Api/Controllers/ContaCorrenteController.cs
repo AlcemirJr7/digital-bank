@@ -64,11 +64,7 @@ public class ContaCorrenteController(IMediator mediator) : AbstractApiController
     [ProducesResponseType(typeof(ApiResult), StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> ConsultaSaldo(CancellationToken ct)
     {
-        var result = await mediator.Send(
-            new ConsultaSaldoRequest
-            {
-                IdContaCorrente = IdContaLogada
-            }, ct);
+        var result = await mediator.Send(new ConsultaSaldoRequest(), ct);
 
         return Response(result);
     }

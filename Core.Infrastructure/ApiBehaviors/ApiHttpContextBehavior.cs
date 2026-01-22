@@ -1,4 +1,5 @@
 ﻿using Core.Abstractions;
+using Core.Idempotencia;
 using MediatR;
 using Microsoft.AspNetCore.Http;
 
@@ -21,8 +22,8 @@ public class ApiHttpContextBehavior<TRequest, TResponse>(IHttpContextAccessor ht
                 // Extrai IdContaLogada dos claims do JWT
                 requestWithContext.IdContaLogada = httpContext.User.FindFirst("idContaCorrente")?.Value ?? string.Empty;
 
-                // Extrai ChaveIdempotencia de um cabeçalho HTTP (ex: "X-Idempotency-Key")
-                if (httpContext.Request.Headers.TryGetValue("X-Idempotency-Key", out var idempotencyKey))
+                // Extrai ChaveIdempotencia de um cabeçalho HTTP
+                if (httpContext.Request.Headers.TryGetValue(IdempotenciaConsts.HeaderKeyName, out var idempotencyKey))
                 {
                     requestWithContext.ChaveIdempotencia = idempotencyKey.ToString();
                 }

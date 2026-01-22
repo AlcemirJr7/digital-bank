@@ -5,6 +5,7 @@ using Core.ApiResults;
 using Core.Security.Crypt;
 using Microsoft.AspNetCore.Http;
 using Serilog;
+using Core.Extensions;
 
 namespace Core.Infrastructure.Middlewares;
 
@@ -105,7 +106,7 @@ public sealed class IdempotenciaMiddleware(
                     Requisicao = requisicaoCriptografada,
                     Resultado = resultadoCriptografado,
                     StatusCode = context.Response.StatusCode,
-                    DataCriacao = DateTime.Now.ToString()
+                    DataCriacao = DateTime.Now.BrStr()
                 };
 
                 await idempotenciaRepository.CreateAsync(novoRegistro);

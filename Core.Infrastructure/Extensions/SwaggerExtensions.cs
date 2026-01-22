@@ -1,4 +1,5 @@
 ﻿using Asp.Versioning.ApiExplorer;
+using Core.Infrastructure.Idempotencia;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.OpenApi.Models;
@@ -16,12 +17,14 @@ public static class SwaggerExtensions
 
             foreach (var description in provider.ApiVersionDescriptions)
             {
+                c.OperationFilter<AddIdempotencyKeyHeaderOperationFilter>();
+
                 c.SwaggerDoc(description.GroupName, new OpenApiInfo()
                 {
                     Title = $"{titleApi} API v{description.ApiVersion}",
                     Version = description.ApiVersion.ToString()
                 });
-
+                
                 c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme()
                 {
                     //definir configuracoes

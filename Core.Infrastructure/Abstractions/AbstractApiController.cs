@@ -1,5 +1,6 @@
 ﻿using Asp.Versioning;
 using Core.ApiResults;
+using Core.Idempotencia;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -12,10 +13,6 @@ namespace Core.Infrastructure.Abstractions;
 [Route("api/v{version:apiVersion}/[controller]")]
 public abstract class AbstractApiController : ControllerBase
 {
-    // Propriedades para IdContaLogada e ChaveIdempotencia (já existentes)
-    protected string IdContaLogada => User.FindFirst("idContaCorrente")?.Value ?? string.Empty;
-    protected string ChaveIdempotencia => Request.Headers["Idempotencia-Key"].ToString();
-
     // Método de extensão Response (já existente)
     // A implementação deve garantir que o StatusCode do ApiResponse seja usado para o StatusCode HTTP.
     protected IActionResult Response<TData>(ApiResult<TData> apiResponse)

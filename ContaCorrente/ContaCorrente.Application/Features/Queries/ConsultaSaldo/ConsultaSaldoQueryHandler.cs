@@ -16,7 +16,7 @@ public sealed class ConsultaSaldoQueryHandler(IContaCorrenteQueryRepository quer
     {
         try
         {
-            var result = await queryRepository.ConsultaSaldoAsync(request.IdContaCorrente, ct: cancellationToken);
+            var result = await queryRepository.ConsultaSaldoAsync(request.IdContaLogada, ct: cancellationToken);
 
             if (result is null)
                 return ApiResult.Failure<ConsultaSaldoResponse>(DomainErrors.Account.Invalid);
