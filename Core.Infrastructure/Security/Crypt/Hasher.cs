@@ -6,7 +6,7 @@ namespace Core.Infrastructure.Security.Crypt;
 
 public class Hasher : IHasher
 {
-    public HashResult CreateHash(string value)
+    public HashResult CreateHash(ReadOnlySpan<char> value)
     {
         byte[] saltBuffer = ArrayPool<byte>.Shared.Rent(CryptConsts.SaltSize);
         byte[] hashBuffer = ArrayPool<byte>.Shared.Rent(CryptConsts.KeySize);
@@ -19,7 +19,7 @@ public class Hasher : IHasher
                 password: value,
                 salt: saltBuffer.AsSpan(0, CryptConsts.SaltSize),
                 iterations: CryptConsts.Iterations,
-                hashAlgorithm: HashAlgorithmName.SHA256,
+                hashAlgorithm: HashAlgorithmName.SHA512,
                 destination: hashBuffer.AsSpan(0, CryptConsts.KeySize)
             );
 

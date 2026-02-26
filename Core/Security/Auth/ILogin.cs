@@ -2,5 +2,5 @@
 
 public interface ILogin
 {
-    bool ValidaSenha(string senha, string hash, string salt);
+    bool ValidaSenha(ReadOnlySpan<char> senha, ReadOnlySpan<char> hash, ReadOnlySpan<char> salt);
 }

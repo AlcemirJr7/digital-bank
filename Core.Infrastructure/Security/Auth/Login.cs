@@ -7,7 +7,7 @@ namespace Core.Infrastructure.Security.Auth;
 
 public sealed class Login : ILogin
 {
-    public bool ValidaSenha(string senha, string hash, string salt)
+    public bool ValidaSenha(ReadOnlySpan<char> senha, ReadOnlySpan<char> hash, ReadOnlySpan<char> salt)
     {
         // Estimar tamanho máximo para saltBytes e hashBytes
         // Base64 expande 3 bytes para 4 chars. Então, 4 chars -> 3 bytes.
@@ -21,8 +21,8 @@ public sealed class Login : ILogin
 
         try
         {
-            if (!Convert.TryFromBase64String(salt, saltBuffer.AsSpan(), out int actualSaltBytesLength) ||
-                !Convert.TryFromBase64String(hash, hashBuffer.AsSpan(), out int actualHashBytesLength))
+            if (!Convert.TryFromBase64String(salt.ToString(), saltBuffer.AsSpan(), out int actualSaltBytesLength) ||
+                !Convert.TryFromBase64String(hash.ToString(), hashBuffer.AsSpan(), out int actualHashBytesLength))
             {
                 return false;
             }
@@ -31,7 +31,7 @@ public sealed class Login : ILogin
                 password: senha,
                 salt: saltBuffer.AsSpan(0, actualSaltBytesLength),
                 iterations: CryptConsts.Iterations,
-                hashAlgorithm: HashAlgorithmName.SHA256,
+                hashAlgorithm: HashAlgorithmName.SHA512,
                 destination: computedHashBuffer.AsSpan(0, CryptConsts.KeySize)
             );
 

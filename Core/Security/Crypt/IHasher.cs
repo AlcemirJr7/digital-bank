@@ -2,5 +2,5 @@
 
 public interface IHasher
 {
-    HashResult CreateHash(string senha);
+    HashResult CreateHash(ReadOnlySpan<char> value);
 }
