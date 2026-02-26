@@ -2,6 +2,6 @@
 
 public interface ICryptService
 {
-    string EncryptAES(string value);
-    string DecryptAES(string value);
+    string EncryptAES(ReadOnlySpan<char> value);
+    string DecryptAES(ReadOnlySpan<char> value);
 }
