@@ -1,75 +1,125 @@
 ﻿using Core.Security.Crypt;
 using Microsoft.Extensions.Configuration;
+using System.Buffers;
 using System.Security.Cryptography;
+using System.Text;
 
 namespace Core.Infrastructure.Security.Crypt;
 
-public sealed class CryptService : ICryptService
+public sealed class CryptService : ICryptService, IDisposable
 {
-    private readonly byte[] _key;
+    private byte[]? _key; // Removido readonly para permitir o clear total
+    private const int NonceSize = 12;
+    private const int TagSize = 16;
+    private const int StackAllocThreshold = 1024; // Limite seguro para stackalloc
 
     public CryptService(IConfiguration configuration)
     {
-        // IMPORTANTE: Armazene essa chave no Azure Key Vault, AWS Secrets Manager, etc.
-        var key = configuration["Encryption:Key"] ?? throw new ArgumentNullException("Encryption:Key não configurada");
-        _key = Convert.FromBase64String(key);
+        var keyBase64 = configuration["Encryption:Key"] ?? throw new ArgumentNullException("Encryption:Key");
+        _key = Convert.FromBase64String(keyBase64);
 
-        if (_key.Length != 32) throw new ArgumentException("A chave deve ter 256 bits (32 bytes)");
+        if (_key.Length != 32) throw new ArgumentException("A chave AES deve ter 256 bits (32 bytes).");
     }
 
-    public string DecryptAES(string value)
+    public string EncryptAES(ReadOnlySpan<char> plainText)
     {
-        if (string.IsNullOrEmpty(value)) return value;
+        ObjectDisposedException.ThrowIf(_key is null, this);
+        if (plainText.IsEmpty) return string.Empty;
+
+        int plainTextByteCount = Encoding.UTF8.GetByteCount(plainText);
+        int totalSize = NonceSize + TagSize + plainTextByteCount;
+
+        // Gerenciamento inteligente de memória: Stack para pequenos, Pool para grandes
+        byte[]? arrayFromPool = null;
+        Span<byte> buffer = totalSize <= StackAllocThreshold
+            ? stackalloc byte[totalSize]
+            : (arrayFromPool = ArrayPool<byte>.Shared.Rent(totalSize));
 
         try
         {
-            var fullCipher = Convert.FromBase64String(value);
+            Span<byte> nonce = buffer.Slice(0, NonceSize);
+            Span<byte> tag = buffer.Slice(NonceSize, TagSize);
+            Span<byte> cipherText = buffer.Slice(NonceSize + TagSize, plainTextByteCount);
 
-            using var aes = Aes.Create();
-            aes.Key = _key;
-            aes.Mode = CipherMode.CBC;
-            aes.Padding = PaddingMode.PKCS7;
+            RandomNumberGenerator.Fill(nonce);
 
-            // Extrai o IV do início dos dados
-            var iv = new byte[16];
-            Array.Copy(fullCipher, 0, iv, 0, iv.Length);
-            aes.IV = iv;
+            // Converte texto para bytes diretamente no buffer temporário
+            byte[]? plainTextArrayFromPool = null;
+            Span<byte> plainTextBytes = plainTextByteCount <= StackAllocThreshold
+                ? stackalloc byte[plainTextByteCount]
+                : (plainTextArrayFromPool = ArrayPool<byte>.Shared.Rent(plainTextByteCount));
 
-            using var decryptor = aes.CreateDecryptor();
-            using var ms = new MemoryStream(fullCipher, iv.Length, fullCipher.Length - iv.Length);
-            using var cs = new CryptoStream(ms, decryptor, CryptoStreamMode.Read);
-            using var reader = new StreamReader(cs);
+            try
+            {
+                int written = Encoding.UTF8.GetBytes(plainText, plainTextBytes);
+                using var aesGcm = new AesGcm(_key, TagSize);
+                aesGcm.Encrypt(nonce, plainTextBytes[..written], cipherText, tag);
 
-            return reader.ReadToEnd();
+                return Convert.ToBase64String(buffer[..totalSize]);
+            }
+            finally
+            {
+                if (plainTextArrayFromPool != null) ArrayPool<byte>.Shared.Return(plainTextArrayFromPool, clearArray: true);
+            }
         }
-        catch (CryptographicException ex)
+        finally
         {
-            throw new InvalidOperationException("Erro ao descriptografar dados. Verifique se a chave está correta.", ex);
+            if (arrayFromPool != null) ArrayPool<byte>.Shared.Return(arrayFromPool, clearArray: true);
         }
     }
 
-    public string EncryptAES(string value)
+    public string DecryptAES(ReadOnlySpan<char> base64CipherText)
     {
-        if (string.IsNullOrEmpty(value)) return value;
+        ObjectDisposedException.ThrowIf(_key is null, this);
+        if (base64CipherText.IsEmpty) return string.Empty;
 
-        using var aes = Aes.Create();
-        aes.Key = _key;
-        aes.GenerateIV(); // Gera IV único para cada criptografia
-        aes.Mode = CipherMode.CBC;
-        aes.Padding = PaddingMode.PKCS7;
+        // Estima tamanho do buffer Base64
+        int maxBufferSize = (base64CipherText.Length * 3) / 4;
+        byte[]? arrayFromPool = null;
+        Span<byte> fullBuffer = maxBufferSize <= StackAllocThreshold
+            ? stackalloc byte[maxBufferSize]
+            : (arrayFromPool = ArrayPool<byte>.Shared.Rent(maxBufferSize));
 
-        using var encryptor = aes.CreateEncryptor();
-        using var ms = new MemoryStream();
-
-        // IMPORTANTE: Armazena o IV junto com os dados criptografados
-        ms.Write(aes.IV, 0, aes.IV.Length);
-
-        using (var cs = new CryptoStream(ms, encryptor, CryptoStreamMode.Write))
-        using (var writer = new StreamWriter(cs))
+        try
         {
-            writer.Write(value);
-        }
+            if (!Convert.TryFromBase64Chars(base64CipherText, fullBuffer, out int bytesWritten))
+                throw new CryptographicException("Base64 inválido.");
 
-        return Convert.ToBase64String(ms.ToArray());
+            var data = fullBuffer[..bytesWritten];
+            Span<byte> nonce = data.Slice(0, NonceSize);
+            Span<byte> tag = data.Slice(NonceSize, TagSize);
+            Span<byte> cipherText = data.Slice(NonceSize + TagSize);
+
+            // Buffer para o resultado decriptografado
+            byte[]? decryptArrayFromPool = null;
+            Span<byte> decryptedBytes = cipherText.Length <= StackAllocThreshold
+                ? stackalloc byte[cipherText.Length]
+                : (decryptArrayFromPool = ArrayPool<byte>.Shared.Rent(cipherText.Length));
+
+            try
+            {
+                using var aesGcm = new AesGcm(_key, TagSize);
+                aesGcm.Decrypt(nonce, cipherText, tag, decryptedBytes);
+
+                return Encoding.UTF8.GetString(decryptedBytes[..cipherText.Length]);
+            }
+            finally
+            {
+                if (decryptArrayFromPool != null) ArrayPool<byte>.Shared.Return(decryptArrayFromPool, clearArray: true);
+            }
+        }
+        finally
+        {
+            if (arrayFromPool != null) ArrayPool<byte>.Shared.Return(arrayFromPool, clearArray: true);
+        }
+    }
+
+    public void Dispose()
+    {
+        if (_key != null)
+        {
+            CryptographicOperations.ZeroMemory(_key);
+            _key = null;
+        }
     }
 }
